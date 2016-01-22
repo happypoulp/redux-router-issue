@@ -2,20 +2,13 @@ import { createStore, combineReducers, applyMiddleware, compose } from 'redux'
 import React, { Component } from 'react'
 import ReactDom from 'react-dom'
 import { connect, Provider } from 'react-redux'
-import { Route, Router } from 'react-router'
+import { Route, Router, Link } from 'react-router'
 import createHistory from 'history/lib/createHashHistory'
 import { reduxReactRouter, routerStateReducer, ReduxRouter } from 'redux-router'
 import thunk from 'redux-thunk'
-import promiseMiddleware from './promise-middleware.js'
 import Immutable from 'immutable'
-import Promise from 'bluebird'
 
 /**************************************** FAKE DATA *************************************/
-
-const dataOther = {
-  foo: 'fooval',
-  bar: 'barval'
-}
 
 const dataList = [
   { id: 1, text: 'one', },
@@ -23,32 +16,6 @@ const dataList = [
 ]
 
 /**************************************** ACTIONS *************************************/
-
-const otherPromise = () => {
-  return {
-    types: ['OTHER_REQUEST', 'OTHER_SUCCESS', 'OTHER_FAILURE'],
-    promise: () => {
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          resolve(dataOther)
-        }, 100)
-      }) 
-    }
-  }
-}
-
-const listPromise = () => {
-  return {
-    types: ['LIST_REQUEST', 'LIST_SUCCESS', 'LIST_FAILURE'],
-    promise: () => {
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          resolve(dataList)
-        }, 200)
-      }) 
-    }
-  }
-}
 
 const listThunk = () => {
   return (dispatch, getState) => {
@@ -67,17 +34,12 @@ const listThunk = () => {
 
 /**************************************** COMPONENTS *************************************/
 
-// const actionCreator = listThunk
-const listAction = listPromise
-const otherAction = otherPromise
+const listAction = listThunk
 
 class AppContainer extends Component {
   static fetchData(dispatch) {
     console.log('AppContainer fetchData')
-    return Promise.all([
-      dispatch(listAction()),
-      dispatch(otherAction()),
-    ])
+    dispatch(listAction())
   }
 
   componentDidMount () {
@@ -105,7 +67,6 @@ class AppContainer extends Component {
           this.props.children,
           {
             ...this.props,
-            other: other,
             list: list,
             children: null
           }
@@ -127,7 +88,7 @@ class App extends Component {
     if (list) {
       return list.map(item => {
         return <li key={ item.get('id') }>
-          <a href={`#/${item.get('id')}`}>{ item.get('text') }</a>
+          <Link to={`/${item.get('id')}`}>{ item.get('text') }</Link>
         </li>
       })
     }
@@ -136,9 +97,6 @@ class App extends Component {
   render () {
     const { other, list } = this.props
     console.log('@@@@@@@ App this.props', this.props)
-    if (!other) {
-      return <div>loading...</div>
-    }
 
     let listComp = null
 
@@ -156,7 +114,6 @@ class App extends Component {
 
 const initialState = Immutable.fromJS({
   list: null,
-  other: null
 })
 
 const appReducer = (state = initialState, action) => {
@@ -167,12 +124,6 @@ const appReducer = (state = initialState, action) => {
     break;
     case 'LIST_SUCCESS':
       return state.set('list', Immutable.fromJS(action.response))
-    break;
-    case 'OTHER_REQUEST':
-      return state.set('other', null)
-    break;
-    case 'OTHER_SUCCESS':
-      return state.set('other', Immutable.fromJS(action.response))
     break;
   }
   return state
@@ -194,7 +145,7 @@ const reducer = combineReducers({
 // Compose reduxReactRouter with other store enhancers
 const finalCreateStore =
 compose(
-  applyMiddleware(promiseMiddleware(), thunk),
+  applyMiddleware(thunk),
   reduxReactRouter({
     routes,
     createHistory
