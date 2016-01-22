@@ -17,11 +17,12 @@ const dataList = [
 /**************************************** ACTION-CREATOR *************************************/
 
 const listThunk = () => (dispatch) => {
+  // Commenting this line fix the issue
   dispatch({ type: 'LIST_REQUEST' })
 
   setTimeout(
     () => dispatch({ type: 'LIST_SUCCESS', response: dataList }),
-    200
+    500
   )
 }
 
@@ -29,21 +30,29 @@ const listThunk = () => (dispatch) => {
 
 class AppContainer extends Component {
   componentDidMount () {
-    console.log('componentDidMount')
     if (!this.props.list) {
+      console.log('... componentDidMount, dispatch action')
       this.props.dispatch(listThunk())
     }
   }
 
   componentWillReceiveProps (nextProps) {
-    console.log('componentWillReceiveProps', 'id', this.props.params.id, 'nextId', nextProps.params.id)
     if (this.props.params.id !== nextProps.params.id) {
+      console.log('... componentWillReceiveProps dispatch action')
       this.props.dispatch(listThunk())
     }
   }
 
+  componentDidUpdate () {
+    console.log('### componentDidUpdate')
+  }
+
   render () {
-    console.log('AppContainer render')
+    console.log('... AppContainer render with list', this.props.app.list)
+
+    if (store.getState().app.list !== this.props.app.list) {
+      console.log('!!!!!!! STALE DATA WERE PROVIDED TO THIS COMPONENT !!!!!!!!')
+    }
 
     return <ul>
       { this.props.app.list && this.props.app.list.map(item =>
@@ -55,19 +64,24 @@ class AppContainer extends Component {
 
   }
 }
-const ConnectedAppContainer = connect(state => ({ app: state.app }))(AppContainer)
+const ConnectedAppContainer = connect(state => {
+  console.log('... connect')
+  return { app: state.app }
+})(AppContainer)
 
 /**************************************** REDUCER *************************************/
 
 const initialState = { list: null }
 
 const appReducer = (state = initialState, action) => {
-  console.log('-- appReducer', state, action)
+  console.log('... appReducer before action:', action, 'state:', state)
+  let newState = state
   switch (action.type) {
-    case 'LIST_REQUEST': return { list: null }
-    case 'LIST_SUCCESS': return { list: action.response }
+    case 'LIST_REQUEST': newState = { list: null }; break;
+    case 'LIST_SUCCESS': newState = { list: action.response }; break;
   }
-  return state
+  console.log('... appReducer after:', newState)
+  return newState
 }
 
 /**************************************** ROUTES *************************************/
@@ -81,20 +95,14 @@ const reducer = combineReducers({
   app: appReducer,
 })
 
-// Compose reduxReactRouter with other store enhancers
-const finalCreateStore =
-compose(
+const store = compose(
   applyMiddleware(thunk),
-  reduxReactRouter({
-    routes,
-    createHistory
-  })
-)
-(createStore)
-
-const store = finalCreateStore(reducer)
+  reduxReactRouter({ routes, createHistory })
+)(createStore)(reducer)
 
 /**************************************** CLIENT RENDERING *************************************/
+
+console.log('### ReactDom.render')
 
 ReactDom.render(
   <Provider store={store}>
